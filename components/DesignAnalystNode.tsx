@@ -1,3 +1,4 @@
+
 import * as React from 'react';
 import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Handle, Position, NodeResizer, useEdges, useReactFlow, useUpdateNodeInternals, useNodes } from 'reactflow';
@@ -7,7 +8,7 @@ import { useProceduralStore } from '../store/ProceduralContext';
 import { getSemanticThemeObject, findLayerByPath } from '../services/psdService';
 import { useKnowledgeScoper } from '../hooks/useKnowledgeScoper';
 import { GoogleGenAI, Type } from "@google/genai";
-import { Brain, BrainCircuit, Ban, ClipboardList, AlertCircle, RefreshCw, RotateCcw, Play, Eye, BookOpen, Tag, Activity } from 'lucide-react';
+import { Brain, BrainCircuit, Ban, ClipboardList, AlertCircle, RefreshCw, RotateCcw, Play, Eye, BookOpen, Tag, Activity, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
 import { Psd } from 'ag-psd';
 
 type ModelKey = 'gemini-3-flash' | 'gemini-3-pro' | 'gemini-3-pro-thinking';
@@ -16,7 +17,8 @@ const DEFAULT_INSTANCE_STATE: AnalystInstanceState = {
     chatHistory: [],
     layoutStrategy: null,
     selectedModel: 'gemini-3-pro',
-    isKnowledgeMuted: false
+    isKnowledgeMuted: false,
+    isMinimized: false
 };
 
 interface ModelConfig {
@@ -189,7 +191,7 @@ const StrategyCard: React.FC<{ strategy: LayoutStrategy, modelConfig: ModelConfi
 };
 
 const InstanceRow: React.FC<any> = ({ 
-    nodeId, index, state, sourceData, targetData, onAnalyze, onModelChange, onToggleMute, onReset, isAnalyzing, compactMode, activeKnowledge 
+    nodeId, index, state, sourceData, targetData, onAnalyze, onModelChange, onToggleMute, onReset, onToggleMinimize, onDelete, isAnalyzing, compactMode, activeKnowledge 
 }) => {
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const activeModelConfig = MODELS[state.selectedModel as ModelKey];
@@ -223,9 +225,15 @@ const InstanceRow: React.FC<any> = ({
 
     return (
         <div className={`relative border-b border-slate-700/50 bg-slate-800/30 first:border-t-0 ${compactMode ? 'py-2' : ''}`}>
-             {/* ... (Header and Controls remain the same) ... */}
+             {/* Header with Accordion and Delete Controls */}
             <div className={`px-3 py-2 flex items-center justify-between ${theme.bg.replace('/20', '/10')}`}>
                 <div className="flex items-center space-x-2">
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onToggleMinimize(index); }}
+                        className="p-1 rounded hover:bg-black/20 text-slate-400 transition-colors"
+                    >
+                        {state.isMinimized ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
+                    </button>
                     <div className={`w-2 h-2 rounded-full ${theme.dot}`}></div>
                     <span className={`text-[11px] font-bold tracking-wide uppercase ${theme.text}`}>
                         {targetData?.name || `Instance ${index + 1}`}
@@ -239,7 +247,7 @@ const InstanceRow: React.FC<any> = ({
                 </div>
                 
                 <div className="flex items-center space-x-2">
-                    {activeKnowledge && (
+                    {!state.isMinimized && activeKnowledge && (
                         <button
                             onClick={(e) => { e.stopPropagation(); onToggleMute(index); }}
                             className={`nodrag nopan p-1 rounded transition-colors border ${
@@ -253,31 +261,44 @@ const InstanceRow: React.FC<any> = ({
                         </button>
                     )}
 
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onReset(index); }}
-                        className="nodrag nopan p-1 rounded transition-colors bg-slate-800 text-slate-500 border border-slate-700 hover:text-red-400 hover:border-red-900/50"
-                        title="Reset Instance (Clear History & Strategy)"
-                    >
-                        <RotateCcw className="w-3 h-3" />
-                    </button>
-
-                    <div className="relative">
-                        <select 
-                            value={state.selectedModel}
-                            onChange={(e) => onModelChange(index, e.target.value as ModelKey)}
-                            onClick={(e) => e.stopPropagation()}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            className={`nodrag nopan appearance-none text-[9px] px-2 py-1 pr-4 rounded font-mono font-bold cursor-pointer outline-none border transition-colors duration-300 ${activeModelConfig.badgeClass}`}
+                    {!state.isMinimized && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onReset(index); }}
+                            className="nodrag nopan p-1 rounded transition-colors bg-slate-800 text-slate-500 border border-slate-700 hover:text-red-400 hover:border-red-900/50"
+                            title="Reset Instance (Clear History & Strategy)"
                         >
-                            <option value="gemini-3-flash" className="text-black bg-white">FLASH</option>
-                            <option value="gemini-3-pro" className="text-black bg-white">PRO</option>
-                            <option value="gemini-3-pro-thinking" className="text-black bg-white">DEEP</option>
-                        </select>
-                    </div>
+                            <RotateCcw className="w-3 h-3" />
+                        </button>
+                    )}
+
+                    {!state.isMinimized && (
+                        <div className="relative">
+                            <select 
+                                value={state.selectedModel}
+                                onChange={(e) => onModelChange(index, e.target.value as ModelKey)}
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className={`nodrag nopan appearance-none text-[9px] px-2 py-1 pr-4 rounded font-mono font-bold cursor-pointer outline-none border transition-colors duration-300 ${activeModelConfig.badgeClass}`}
+                            >
+                                <option value="gemini-3-flash" className="text-black bg-white">FLASH</option>
+                                <option value="gemini-3-pro" className="text-black bg-white">PRO</option>
+                                <option value="gemini-3-pro-thinking" className="text-black bg-white">DEEP</option>
+                            </select>
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onDelete(index); }}
+                        className="p-1 rounded text-slate-500 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                        title="Delete Instance"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                 </div>
             </div>
 
             <div className={`p-3 space-y-3 ${compactMode ? 'text-[10px]' : ''}`}>
+                 {/* Handles Container - ALWAYS RENDERED */}
                  <div className="flex items-center justify-between bg-slate-900/40 rounded p-2 border border-slate-700/30 relative min-h-[60px] overflow-visible">
                     
                     <div className="flex flex-col gap-4 relative justify-center h-full">
@@ -315,77 +336,80 @@ const InstanceRow: React.FC<any> = ({
                     </div>
                 </div>
 
-                <div 
-                    ref={chatContainerRef} 
-                    className={`nodrag nopan ${compactMode ? 'h-48' : 'h-64'} overflow-y-auto border border-slate-700 bg-slate-900 rounded p-3 space-y-3 custom-scrollbar transition-all shadow-inner cursor-auto`} 
-                    onMouseDown={(e) => e.stopPropagation()}
-                >
-                    {state.chatHistory.length === 0 && (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-600 italic text-xs opacity-50"><span>Ready to analyze {targetData?.name || 'slot'}</span></div>
-                    )}
-                    {state.chatHistory.map((msg: any, idx: number) => (
-                        <div key={msg.id || idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                            <div className={`max-w-[95%] rounded border p-3 text-xs leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-800 border-slate-600 text-slate-200' : `bg-slate-800/50 ${activeModelConfig.badgeClass.replace('bg-', 'border-').split(' ')[0]} text-slate-300`}`}>
-                                {msg.parts?.[0]?.text && msg.role === 'user' && (<div className="whitespace-pre-wrap break-words">{msg.parts[0].text}</div>)}
-                                
-                                {msg.role === 'model' && msg.strategySnapshot && (
-                                    <div className="flex flex-col gap-3">
-                                        <div className="space-y-1.5">
-                                            <div className="flex items-center space-x-2 border-b border-slate-700/50 pb-1.5">
-                                                <div className="p-1 bg-purple-500/20 rounded">
-                                                    <Brain className="w-3 h-3 text-purple-300" />
+                {!state.isMinimized && (
+                    <>
+                        <div 
+                            ref={chatContainerRef} 
+                            className={`nodrag nopan ${compactMode ? 'h-48' : 'h-64'} overflow-y-auto border border-slate-700 bg-slate-900 rounded p-3 space-y-3 custom-scrollbar transition-all shadow-inner cursor-auto`} 
+                            onMouseDown={(e) => e.stopPropagation()}
+                        >
+                            {state.chatHistory.length === 0 && (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-600 italic text-xs opacity-50"><span>Ready to analyze {targetData?.name || 'slot'}</span></div>
+                            )}
+                            {state.chatHistory.map((msg: any, idx: number) => (
+                                <div key={msg.id || idx} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                    <div className={`max-w-[95%] rounded border p-3 text-xs leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-slate-800 border-slate-600 text-slate-200' : `bg-slate-800/50 ${activeModelConfig.badgeClass.replace('bg-', 'border-').split(' ')[0]} text-slate-300`}`}>
+                                        {msg.parts?.[0]?.text && msg.role === 'user' && (<div className="whitespace-pre-wrap break-words">{msg.parts[0].text}</div>)}
+                                        
+                                        {msg.role === 'model' && msg.strategySnapshot && (
+                                            <div className="flex flex-col gap-3">
+                                                <div className="space-y-1.5">
+                                                    <div className="flex items-center space-x-2 border-b border-slate-700/50 pb-1.5">
+                                                        <div className="p-1 bg-purple-500/20 rounded">
+                                                            <Brain className="w-3 h-3 text-purple-300" />
+                                                        </div>
+                                                        <span className="text-[10px] font-bold text-purple-200 uppercase tracking-widest">
+                                                            Expert Design Audit
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap pl-1">
+                                                        {msg.strategySnapshot.reasoning}
+                                                    </div>
                                                 </div>
-                                                <span className="text-[10px] font-bold text-purple-200 uppercase tracking-widest">
-                                                    Expert Design Audit
-                                                </span>
-                                            </div>
-                                            <div className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap pl-1">
-                                                {msg.strategySnapshot.reasoning}
-                                            </div>
-                                        </div>
 
-                                        <StrategyCard strategy={msg.strategySnapshot} modelConfig={activeModelConfig} />
+                                                <StrategyCard strategy={msg.strategySnapshot} modelConfig={activeModelConfig} />
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                    {isAnalyzing && (
-                        <div className="flex items-center space-x-2 text-xs text-slate-400 animate-pulse pl-1">
-                            <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
-                            <span>Analyst is thinking...</span>
-                            {activeKnowledge && !state.isKnowledgeMuted && (
-                                <span className="text-[9px] text-teal-400 font-bold ml-1 flex items-center gap-1">
-                                    <Brain className="w-3 h-3" />
-                                    + Rules & Anchors
-                                </span>
+                                </div>
+                            ))}
+                            {isAnalyzing && (
+                                <div className="flex items-center space-x-2 text-xs text-slate-400 animate-pulse pl-1">
+                                    <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"></div>
+                                    <span>Analyst is thinking...</span>
+                                    {activeKnowledge && !state.isKnowledgeMuted && (
+                                        <span className="text-[9px] text-teal-400 font-bold ml-1 flex items-center gap-1">
+                                            <Brain className="w-3 h-3" />
+                                            + Rules & Anchors
+                                        </span>
+                                    )}
+                                </div>
                             )}
                         </div>
-                    )}
-                </div>
 
-                <div className="flex items-center space-x-2 pt-2 border-t border-slate-700/30">
-                     <button 
-                        onClick={(e) => { e.stopPropagation(); onAnalyze(index); }} 
-                        onMouseDown={(e) => e.stopPropagation()} 
-                        disabled={!isReady || isAnalyzing} 
-                        className={`nodrag nopan h-9 w-full rounded text-[10px] font-bold uppercase tracking-wider transition-all shadow-lg flex items-center justify-center space-x-2 
-                            ${isReady && !isAnalyzing 
-                                ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white border border-indigo-400/50' 
-                                : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
-                            }`}
-                     >
-                        <Play className="w-3 h-3 fill-current" />
-                        <span>Run Design Analysis</span>
-                     </button>
-                </div>
+                        <div className="flex items-center space-x-2 pt-2 border-t border-slate-700/30">
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); onAnalyze(index); }} 
+                                onMouseDown={(e) => e.stopPropagation()} 
+                                disabled={!isReady || isAnalyzing} 
+                                className={`nodrag nopan h-9 w-full rounded text-[10px] font-bold uppercase tracking-wider transition-all shadow-lg flex items-center justify-center space-x-2 
+                                    ${isReady && !isAnalyzing 
+                                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white border border-indigo-400/50' 
+                                        : 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-700'
+                                    }`}
+                            >
+                                <Play className="w-3 h-3 fill-current" />
+                                <span>Run Design Analysis</span>
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     );
 };
 
 export const DesignAnalystNode = memo(({ id, data }: NodeProps<PSDNodeData>) => {
-  // ... (Hooks and callbacks remain unchanged) ...
   const [analyzingInstances, setAnalyzingInstances] = useState<Record<number, boolean>>({});
   const instanceCount = data.instanceCount || 1;
   const analystInstances = data.analystInstances || {};
@@ -402,7 +426,7 @@ export const DesignAnalystNode = memo(({ id, data }: NodeProps<PSDNodeData>) => 
 
   useEffect(() => {
     updateNodeInternals(id);
-  }, [id, instanceCount, updateNodeInternals]);
+  }, [id, instanceCount, analystInstances, updateNodeInternals]);
 
   const activeContainerNames = useMemo(() => {
     const names: string[] = [];
@@ -584,11 +608,48 @@ export const DesignAnalystNode = memo(({ id, data }: NodeProps<PSDNodeData>) => 
         return n;
     }));
   }, [id, setNodes]);
+
+  const handleToggleMinimize = useCallback((index: number) => {
+      const current = analystInstances[index]?.isMinimized || false;
+      updateInstanceState(index, { isMinimized: !current });
+  }, [analystInstances, updateInstanceState]);
+
+  const handleDeleteInstance = useCallback((index: number) => {
+      setNodes((nds) => nds.map((n) => {
+          if (n.id === id) {
+              const currentCount = n.data.instanceCount || 1;
+              const currentInstances = n.data.analystInstances || {};
+              const newInstances: Record<number, AnalystInstanceState> = {};
+              
+              // RE-INDEXING ENGINE: Contiguous shift
+              let newIdx = 0;
+              for (let i = 0; i < currentCount; i++) {
+                  if (i === index) continue;
+                  if (currentInstances[i]) {
+                      newInstances[newIdx] = currentInstances[i];
+                  } else {
+                      newInstances[newIdx] = { ...DEFAULT_INSTANCE_STATE };
+                  }
+                  newIdx++;
+              }
+
+              return {
+                  ...n,
+                  data: {
+                      ...n.data,
+                      instanceCount: Math.max(0, currentCount - 1),
+                      analystInstances: newInstances
+                  }
+              };
+          }
+          return n;
+      }));
+  }, [id, setNodes]);
   
   const handleReset = useCallback((index: number) => {
-      updateInstanceState(index, DEFAULT_INSTANCE_STATE);
+      updateInstanceState(index, { ...DEFAULT_INSTANCE_STATE, isMinimized: analystInstances[index]?.isMinimized });
       flushPipelineInstance(id, `source-out-${index}`);
-  }, [updateInstanceState, flushPipelineInstance, id]);
+  }, [updateInstanceState, flushPipelineInstance, id, analystInstances]);
 
   const handleModelChange = (index: number, model: ModelKey) => {
       updateInstanceState(index, { selectedModel: model });
@@ -744,8 +805,6 @@ export const DesignAnalystNode = memo(({ id, data }: NodeProps<PSDNodeData>) => 
         
         CONTEXT SOURCE:
         The rules above were extracted from "// [NAME] CONTAINER" blocks. They are strict hard constraints for this specific layout.
-        
-        CRITICAL: You are restricted to the following [CONTAINER PROTOCOL]. Ignore all previous generic design training that contradicts these specific rules.
         
         ` + prompt;
     }
@@ -1004,6 +1063,7 @@ export const DesignAnalystNode = memo(({ id, data }: NodeProps<PSDNodeData>) => 
                   <InstanceRow 
                       key={i} nodeId={id} index={i} state={state} sourceData={getSourceData(i)} targetData={getTargetData(i)}
                       onAnalyze={handleAnalyze} onModelChange={handleModelChange} onToggleMute={handleToggleMute} onReset={handleReset}
+                      onToggleMinimize={handleToggleMinimize} onDelete={handleDeleteInstance}
                       isAnalyzing={!!analyzingInstances[i]} compactMode={instanceCount > 1}
                       activeKnowledge={activeKnowledge}
                   />

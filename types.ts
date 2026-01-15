@@ -1,3 +1,4 @@
+
 import { Psd } from 'ag-psd';
 import { Node, Edge } from 'reactflow';
 
@@ -257,6 +258,7 @@ export interface RemapperConfig {
 
 export interface InstanceSettings {
   generationAllowed?: boolean;
+  isMinimized?: boolean;
 }
 
 export interface ChatMessage {
@@ -272,11 +274,13 @@ export interface AnalystInstanceState {
   layoutStrategy: LayoutStrategy | null;
   selectedModel: 'gemini-3-flash' | 'gemini-3-pro' | 'gemini-3-pro-thinking';
   isKnowledgeMuted: boolean; 
+  isMinimized?: boolean;
 }
 
 export interface ReviewerInstanceState {
   chatHistory: ChatMessage[];
   reviewerStrategy: ReviewerStrategy | null;
+  isMinimized?: boolean;
 }
 
 export interface InspectorState {
